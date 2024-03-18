@@ -3,7 +3,7 @@ Class Fitbit.Api.Client.requests.addSubscriptions Extends Fitbit.Api.Client.requ
 
 Parameter METHOD = "post";
 
-Parameter URL = "/1/user/-/{collection-path}/apiSubscriptions/{subscription-id}.json";
+Parameter URL = "/1/user/-/{collection-path}apiSubscriptions/{subscription-id}.json";
 
 Property %Consume As %String(MAXLEN = "");
 
@@ -23,6 +23,12 @@ Method LoadHttpRequestObject(ByRef httpRequest As %Net.HttpRequest) As %Status
 	Set sc = $$$OK
 	Set httpRequest.ContentType = ..%ContentType
 	Do httpRequest.SetHeader("accept", ..%Consume)
+
+	if ..pathcollectionpath '= ""
+	{
+		set ..pathcollectionpath = ..pathcollectionpath _ "/"
+	}
+
 	Set ..%URL = $Replace(..#URL,"{collection-path}", ..pathcollectionpath)
 	Set ..%URL = $Replace(..%URL,"{subscription-id}", ..pathsubscriptionid)
 	Quit sc

@@ -26,8 +26,8 @@ XData OpenAPI [ MimeType = application/json ]
   "basePath": "/fitbit",
   "tags": [
     {
-      "name": "Authorization",
-      "description": "OAuth2 Authorization"
+      "name": "Notifications",
+      "description": "Notifications sent by Fitbit"
     }
   ],
   "paths": {
@@ -60,29 +60,62 @@ XData OpenAPI [ MimeType = application/json ]
         }
       }
     },
-    "/oauth2-redirect.html": {
+    "/notify": {
       "get": {
         "tags": [ 
-          "Authorization"
+          "Notifications"
         ],
         "x-ISC_CORS": true,
-        "summary": "Handle OAuth2 flow",
-        "operationId": "OAuth2Redirect",
-        "produces": [
+        "summary": "Verify Notification Endpoint",
+        "operationId": "VerifyCode",
+        "security": [
+        ],
+        "parameters": [
+          {
+            "name": "verify",
+            "required": false,
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Correct verification Code"
+          },
+          "404": {
+            "description": "Incorrect verification Code"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "post": {
+        "tags": [ 
+          "Notifications"
+        ],
+        "x-ISC_CORS": true,
+        "summary": "Handle Notifications",
+        "operationId": "HandleNotifications",
+        "consumes": [
           "application/json"
         ],
         "security": [
+        ],
+        "parameters": [
           {
-            "basicAuth": []
+            "name": "notifications",
+            "in": "body",
+            "description": "List of Notifications",
+            "schema": {
+              "$ref": "#/definitions/Notifications"
+            },
+            "required": true
           }
         ],
-        "parameters": [],
         "responses": {
-          "200": {
+          "204": {
             "description": "Succes"
-          },
-          "404": {
-            "description": "Not Found"
           },
           "500": {
             "description": "Internal Server Error"
@@ -92,6 +125,46 @@ XData OpenAPI [ MimeType = application/json ]
     }
   },
   "definitions": {
+    "Notifications": {
+      "type": "array",
+      "items" : {
+        "type": "object",
+        "properties": {
+          "collectionType": {
+            "type": "string",
+            "description": "Type of Notification",
+            "enum": [
+              "activities",
+              "body",
+              "foods",
+              "sleep",
+              "userRevokedAccess",
+              "deleteUser"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date of Notification (YYYY-MM-DD)",
+            "example": "2024-03-18"
+          },
+          "ownerId": {
+            "type": "string",
+            "description": "Fitbit UserId",
+            "example": "4D8CR2"
+          },
+          "ownerType": {
+            "type": "string",
+            "description": "ownerType, currently always 'user'",
+            "example": "user"
+          },
+          "subscriptionId": {
+            "type": "string",
+            "description": "Subscription Id"
+          }
+        }
+      }
+    }
   }
 }
 }

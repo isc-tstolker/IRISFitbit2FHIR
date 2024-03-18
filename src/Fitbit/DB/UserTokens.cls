@@ -62,6 +62,19 @@ ClassMethod GetAccessTokenForUser(userId As %String) As %Status
     return ""
 }
 
+/// Get scopes for User
+ClassMethod GetScopesForUser(userId As %String) As %Status
+{
+    if ..UserIdIndexExists(userId)
+    {
+        #dim userToken as Fitbit.DB.UserTokens = ..UserIdIndexOpen(userId)
+
+        return userToken.Scopes
+    }
+
+    return ""
+}
+
 Storage Default
 {
 <Data name="UserTokensDefaultData">
@@ -86,8 +99,43 @@ Storage Default
 </Data>
 <DataLocation>^Fitbit.DB.UserTokensD</DataLocation>
 <DefaultData>UserTokensDefaultData</DefaultData>
+<ExtentSize>1</ExtentSize>
 <IdLocation>^Fitbit.DB.UserTokensD</IdLocation>
 <IndexLocation>^Fitbit.DB.UserTokensI</IndexLocation>
+<Property name="%%CLASSNAME">
+<AverageFieldSize>2</AverageFieldSize>
+<Selectivity>100.0000%</Selectivity>
+</Property>
+<Property name="%%ID">
+<AverageFieldSize>3</AverageFieldSize>
+<Selectivity>1</Selectivity>
+</Property>
+<Property name="AccessToken">
+<AverageFieldSize>309</AverageFieldSize>
+<Selectivity>100.0000%</Selectivity>
+</Property>
+<Property name="RefreshToken">
+<AverageFieldSize>66</AverageFieldSize>
+<Selectivity>100.0000%</Selectivity>
+</Property>
+<Property name="Scopes">
+<AverageFieldSize>156</AverageFieldSize>
+<Selectivity>100.0000%</Selectivity>
+</Property>
+<Property name="UTCExpiryDateTime">
+<AverageFieldSize>27</AverageFieldSize>
+<Selectivity>100.0000%</Selectivity>
+</Property>
+<Property name="UserId">
+<AverageFieldSize>8</AverageFieldSize>
+<Selectivity>1</Selectivity>
+</Property>
+<SQLMap name="IDKEY">
+<BlockCount>-4</BlockCount>
+</SQLMap>
+<SQLMap name="UserIdIndex">
+<BlockCount>-4</BlockCount>
+</SQLMap>
 <StreamLocation>^Fitbit.DB.UserTokensS</StreamLocation>
 <Type>%Storage.Persistent</Type>
 }

@@ -20,6 +20,10 @@ ClassMethod OnPage() As %Status
 
 	set sc = ##class(Fitbit.DB.UserTokens).CreateOrUpdateUserFromToken(token)
 
+	// Now also call BP AddOrUpdateUser
+
+	do ##class(Fitbit.BS.StartProcessService).StartAddOrUpdateUserProcess(token."user_id")
+
 	&html<<!doctype html>
 <html>
 <head>
@@ -219,7 +223,7 @@ ClassMethod GetToken(code As %String, Output sc As %Status) As %DynamicObject
 	do request.InsertFormData("code", code)
 	do request.InsertFormData("client_id", ##class(Fitbit.Api.Client.bo.Operation).GetConfigValue("OAuth2ClientID"))
 	do request.InsertFormData("redirect_uri", ##class(Fitbit.Api.Client.bo.Operation).GetConfigValue("RedirectUrl", 0))
-	do request.InsertFormData("expires_in", "28800")
+	do request.InsertFormData("expires_in", "900")
 	do request.InsertFormData("code_verifier", %session.Get("CodeVerifier"))
 	
 	set sc = request.Post("https://api.fitbit.com/oauth2/token")

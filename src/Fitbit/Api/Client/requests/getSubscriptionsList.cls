@@ -3,7 +3,7 @@ Class Fitbit.Api.Client.requests.getSubscriptionsList Extends Fitbit.Api.Client.
 
 Parameter METHOD = "get";
 
-Parameter URL = "/1/user/-/{collection-path}/apiSubscriptions.json";
+Parameter URL = "/1/user/-/{collection-path}apiSubscriptions.json";
 
 Property %Consume As %String(MAXLEN = "");
 
@@ -20,6 +20,12 @@ Method LoadHttpRequestObject(ByRef httpRequest As %Net.HttpRequest) As %Status
 	Set sc = $$$OK
 	Set httpRequest.ContentType = ..%ContentType
 	Do httpRequest.SetHeader("accept", ..%Consume)
+
+	if ..pathcollectionpath '= ""
+	{
+		set ..pathcollectionpath = ..pathcollectionpath _ "/"
+	}
+	
 	Set ..%URL = $Replace(..#URL,"{collection-path}", ..pathcollectionpath)
 	Quit sc
 }

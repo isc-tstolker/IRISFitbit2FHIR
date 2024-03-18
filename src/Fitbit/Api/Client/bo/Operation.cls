@@ -8,7 +8,9 @@ Property OAuth2ClientID As %String(MAXLEN = 50) [ InitialExpression = "227P83" ]
 
 Property OAuth2ClientSecret As %String(MAXLEN = 50) [ InitialExpression = "5a68a11c251c8e313bae0783005237da" ];
 
-Property RedirectUrl As %String(MAXLEN = 100) [ InitialExpression = "https://iris.dev.iscdev.nl/csp/healthshare/connectors/Fitbit.OAuth2Redirect.cls" ];
+Property RedirectUrl As %String(MAXLEN = 100) [ InitialExpression = "https://iris.dev.iscdev.nl/csp/healthshare/fitbit/Fitbit.OAuth2Redirect.cls" ];
+
+Property VerificationCode As %String(MAXLEN = 100) [ InitialExpression = "1c38222aa3cef332c9085552d29bc3d1637ab123b39651a92278a971e0a86340" ];
 
 /// Requested scopes
 Property activity As %Boolean [ InitialExpression = 1 ];
@@ -39,7 +41,7 @@ Property temperature As %Boolean [ InitialExpression = 1 ];
 
 Property weight As %Boolean [ InitialExpression = 1 ];
 
-Parameter SETTINGS = "OAuth2ClientID:Fitbit,OAuth2ClientSecret:Fitbit,RedirectUrl:Fitbit,activity:Fitbit Requested Scopes,activity:Fitbit Requested Scopes,cardio_fitness:Fitbit Requested Scopes,electrocardiogram:Fitbit Requested Scopes,heartrate:Fitbit Requested Scopes,location:Fitbit Requested Scopes,nutrition:Fitbit Requested Scopes,oxygen_saturation:Fitbit Requested Scopes,profile:Fitbit Requested Scopes,respiratory_rate:Fitbit Requested Scopes,settings:Fitbit Requested Scopes,sleep:Fitbit Requested Scopes,social:Fitbit Requested Scopes,temperature:Fitbit Requested Scopes,weight:Fitbit Requested Scopes";
+Parameter SETTINGS = "OAuth2ClientID:Fitbit,OAuth2ClientSecret:Fitbit,RedirectUrl:Fitbit,VerificationCode:Fitbit,activity:Fitbit Requested Scopes,activity:Fitbit Requested Scopes,cardio_fitness:Fitbit Requested Scopes,electrocardiogram:Fitbit Requested Scopes,heartrate:Fitbit Requested Scopes,location:Fitbit Requested Scopes,nutrition:Fitbit Requested Scopes,oxygen_saturation:Fitbit Requested Scopes,profile:Fitbit Requested Scopes,respiratory_rate:Fitbit Requested Scopes,settings:Fitbit Requested Scopes,sleep:Fitbit Requested Scopes,social:Fitbit Requested Scopes,temperature:Fitbit Requested Scopes,weight:Fitbit Requested Scopes";
 
 Parameter ADAPTER = "EnsLib.HTTP.OutboundAdapter";
 
@@ -54,7 +56,7 @@ ClassMethod GetConfigValue(name As %String, doEncode As %Boolean = 1) As %String
 	}
 	else
 	{
-		set value = ##class(Ens.Director).GetItemSettingValue("||Fitbit", "Host", name, .sc)
+		set value = ##class(Ens.Director).GetItemSettingValue("||FitbitWebAPI", "Host", name, .sc)
 	}
 
 	if (doEncode)
@@ -75,7 +77,7 @@ ClassMethod GetRequestedScopes() As %Status
 	{
 		set scope = $PIECE(totalScopes, " ", index)
 
-		if ##class(Ens.Director).GetItemSettingValue("||Fitbit", "Host", scope, .sc)
+		if ##class(Ens.Director).GetItemSettingValue("||FitbitWebAPI", "Host", scope, .sc)
 		{
 			set requestedScopes = requestedScopes _ scope _ " "
 		}
@@ -1071,6 +1073,7 @@ Method zzHandleRequest(requestMessage As Fitbit.Api.Client.requests.GenericReque
 	}
 
 	do pHttpRequestIn.AuthorizationSet("Bearer " _ accessToken)
+	#; set pHttpRequestIn.FollowRedirect = 1
 
 	set sc = ..Adapter.SendFormDataArray(.pHttpResponse, method, pHttpRequestIn, , , ..Adapter.URL _ requestMessage.%URL)
 
@@ -1080,6 +1083,9 @@ Method zzHandleRequest(requestMessage As Fitbit.Api.Client.requests.GenericReque
 
 	if $ISOBJECT(pHttpResponse) {
 		$$$TRACE(name _" returned " _ pHttpResponse.StatusCode)
+
+		
+
 		$$$QuitOnError(responseMessage.LoadFromResponse(pHttpResponse, name))
 	}
 
