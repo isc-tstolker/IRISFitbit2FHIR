@@ -56,11 +56,17 @@ ClassMethod VerifyCode(verify As %String) As %String
 ///     notifications, List of Notifications<br/>
 ClassMethod HandleNotifications(notifications As %DynamicArray) As %String
 {
+    do ..%SetStatusCode(..#HTTP204NOCONTENT)
+
     #dim tService as Fitbit.BS.StartProcessService
 
-    $$$LOGINFO(notifications.%ToJSON())
+    set sc = ##class(Ens.Director).CreateBusinessService(##class(Fitbit.BS.StartProcessService).#ServiceName, .tService)
 
-    do ##class(Ens.Director).CreateBusinessService(##class(Fitbit.BS.StartProcessService).#ServiceName, .tService)
+    if $$$ISERR(sc)
+    {
+        $$$LOGERROR("CreateBusinessService: " _ $SYSTEM.Status.GetErrorText(sc))
+        return ""
+    }
 
     for index = 1:1:notifications.%Size()
     {
@@ -68,15 +74,18 @@ ClassMethod HandleNotifications(notifications As %DynamicArray) As %String
 
         #dim request as Fitbit.Msg.NotificationRequest = ##class(Fitbit.Msg.NotificationRequest).%New()
         set request.Async = 1
+
         set sc = request.%JSONImport(notification)
 
-        if $$$ISOK(sc)
+        if $$$ISERR(sc)
         {
-    		do tService.ProcessInput(request)
+            $$$LOGERROR("JSONImport(" _ notification.%ToJSON() _ "): " _ $SYSTEM.Status.GetErrorText(sc))
+            continue
         }
+
+        do tService.ProcessInput(request)
     }
 
-    do ..%SetStatusCode(..#HTTP204NOCONTENT)
     return ""
 }
 
