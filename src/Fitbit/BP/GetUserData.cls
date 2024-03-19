@@ -17,10 +17,12 @@ Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output p
 	try
 	{
 		// Get User profile and create/update FHIR Patient
-		#; do ..CreateOrUpdatePatient(..GetProfile(pRequest.UserId))
+		#dim profile As Fitbit.Api.Client.model.Profile = ..GetProfile(pRequest.UserId)
+		$$$ThrowOnError(##class(Fitbit.DB.UserTokens).UpdateTimezone(pRequest.UserId, profile.Timezone))
+		do ..CreateOrUpdatePatient(profile)
 
-		// Get historic weight
-		do ..GetWeightByDatePeriod(pRequest.UserId)
+		// Get weights
+		do ..SyncWeight(pRequest.UserId, profile.Timezone, profile.MemberSince)
 	}
 	catch ex
 	{
@@ -98,18 +100,34 @@ Method GetProfile(userId As %String) As Fitbit.Api.Client.model.Profile
 	return response.User.Profile
 }
 
-/// Get weight for maximum period
-Method GetWeightByDatePeriod(userId As %String, period As %String = "1y")
+/// Sync Weight Observations
+Method SyncWeight(userId As %String = "", timezone As %String = "", memberSince As %String = "2016-03-10")
 {
-	set request = ##class(Fitbit.Api.Client.requests.getWeightByDateRange).%New()
-	set request.UserId = userId
-	// maximum numbber of days is 1095
-	set request.pathbasedate = "today"
-	set request.pathenddate = $ZDATE(-1094 + $HOROLOG, 3)
+	set startday = $ZDATEH(memberSince, 3)
+	set today = +$HOROLOG
 
-	$$$ThrowOnError(..SendRequestSync(..FitbitWebAPI, request, .response))
+	for day = startday:32:today
+	{
+		set request = ##class(Fitbit.Api.Client.requests.getWeightByDateRange).%New()
+		set request.UserId = userId
+		// maximum number of days is 31
+		set request.pathbasedate = $ZDATE(day, 3)
 
-	#dim response as Fitbit.Api.Client.responses.getWeightByDateRange
+		if (day + 31) > today
+		{
+			set request.pathenddate = $ZDATE(today, 3)
+		}
+		else
+		{
+			set request.pathenddate = $ZDATE(day + 31, 3)
+		}
+
+		$$$ThrowOnError(..SendRequestSync(..FitbitWebAPI, request, .response))
+
+		#dim response as Fitbit.Api.Client.responses.getWeightByDateRange
+
+		do ..SaveWeightObservations(userId, timezone, response.WeightList)
+	}
 }
 
 Storage Default

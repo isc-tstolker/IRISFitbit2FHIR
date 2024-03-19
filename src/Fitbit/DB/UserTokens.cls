@@ -21,6 +21,9 @@ Property UTCExpiryDateTime As %String;
 /// Scopes
 Property Scopes As %String(MAXLEN = "");
 
+/// Timezone
+Property Timezone As %String;
+
 /// CreateOrUpdateUser
 ClassMethod CreateOrUpdateUserFromToken(token As %DynamicObject) As %Status
 {
@@ -52,7 +55,7 @@ ClassMethod UpdateUserFromToken(userToken As Fitbit.DB.UserTokens, token As %Dyn
 }
 
 /// Get AccessToken for User
-ClassMethod GetAccessTokenForUser(userId As %String) As %Status
+ClassMethod GetAccessTokenForUser(userId As %String) As %String
 {
     if ..UserIdIndexExists(userId)
     {
@@ -91,7 +94,37 @@ ClassMethod GetAccessTokenForUser(userId As %String) As %Status
 }
 
 /// Get scopes for User
-ClassMethod GetScopesForUser(userId As %String) As %Status
+ClassMethod GetScopesForUser(userId As %String) As %String
+{
+    if ..UserIdIndexExists(userId)
+    {
+        #dim userToken as Fitbit.DB.UserTokens = ..UserIdIndexOpen(userId)
+
+        return userToken.Scopes
+    }
+
+    return ""
+}
+
+/// Get timezone for User
+ClassMethod UpdateTimezone(userId As %String, timezone As %String) As %Status
+{
+    set sc = $$$OK
+
+    if ..UserIdIndexExists(userId)
+    {
+        #dim userToken as Fitbit.DB.UserTokens = ..UserIdIndexOpen(userId)
+
+        set userToken.Timezone = timezone
+
+        set sc = userToken.%Save()
+    }
+
+    return sc
+}
+
+/// Get timezone for User
+ClassMethod GetTimezoneForUser(userId As %String) As %String
 {
     if ..UserIdIndexExists(userId)
     {
@@ -123,6 +156,9 @@ Storage Default
 </Value>
 <Value name="6">
 <Value>Scopes</Value>
+</Value>
+<Value name="7">
+<Value>Timezone</Value>
 </Value>
 </Data>
 <DataLocation>^Fitbit.DB.UserTokensD</DataLocation>

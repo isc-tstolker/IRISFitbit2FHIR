@@ -71,16 +71,16 @@ Method SendFHIRRequest(pRequest As HS.FHIRServer.Interop.Request) As %DynamicObj
 }
 
 /// Save Observations for Weight
-Method SaveWeightObservations(userId As %String, weightList As Fitbit.Api.Client.model.WeightList)
+Method SaveWeightObservations(userId As %String, timezone As %String, weightList As Fitbit.Api.Client.model.WeightList)
 {
     for index = 1:1:weightList.Weights.Count()
     {
-        do ..SaveWeightObservation(userId, weightList.Weights.GetAt(index))
+        do ..SaveWeightObservation(userId, timezone, weightList.Weights.GetAt(index))
     }
 }
 
 /// Save single Weight Observation
-Method SaveWeightObservation(userId As %String, weight As Fitbit.Api.Client.model.Weight)
+Method SaveWeightObservation(userId As %String, timezone As %String, weight As Fitbit.Api.Client.model.Weight)
 {
     set id = userId _ "." _ weight.LogId
 
@@ -90,7 +90,7 @@ Method SaveWeightObservation(userId As %String, weight As Fitbit.Api.Client.mode
 		"identifier": [
 			{
 				"system": (..#ObservationIdentifierSystem),
-				"value": ("" _ weight.LogId)
+				"value": (id)
 			}
 		],
 		"status": "final",
@@ -116,7 +116,7 @@ Method SaveWeightObservation(userId As %String, weight As Fitbit.Api.Client.mode
         "subject": {
             "reference": ("Patient/" _ userId)
         },
-        "effectiveDateTime": (..FormatDateTime(weight.Date _ "T" _ weight.Time)),
+        "effectiveDateTime": (..FormatDateTime(weight.Date _ "T" _ weight.Time, timezone)),
         "performer": [
             {
                 "reference": ("Patient/" _ userId)
@@ -191,7 +191,7 @@ Method SaveWeightObservation(userId As %String, weight As Fitbit.Api.Client.mode
 }
 
 /// Use Python to determine the proper timezone offset
-ClassMethod FormatDateTime(fitbitdatetime As %String, timezone As %String = "Europe/Amsterdam") As %String [ Language = python ]
+ClassMethod FormatDateTime(fitbitdatetime As %String, timezone As %String) As %String [ Language = python ]
 {
     import tzdata
     from zoneinfo import ZoneInfo
