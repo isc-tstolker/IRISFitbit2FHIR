@@ -1,3 +1,5 @@
+Include Ensemble
+
 /// Fitbit UserTokens - here we store the current Refresh token and current active token for known Fitbit users 
 Class Fitbit.DB.UserTokens Extends %Persistent
 {
@@ -22,12 +24,8 @@ Property Scopes As %String(MAXLEN = "");
 /// CreateOrUpdateUser
 ClassMethod CreateOrUpdateUserFromToken(token As %DynamicObject) As %Status
 {
-    return ..CreateOrUpdateUser(token."user_id", token."access_token", token."refresh_token", token."expires_in", token.scope)
-}
+    set userId = token."user_id"
 
-/// CreateOrUpdateUser
-ClassMethod CreateOrUpdateUser(userId As %String, accessToken As %String, refreshToken As %String, expiresIn As %Integer, scopes As %String) As %Status
-{
     if ..UserIdIndexExists(userId)
     {
         set userToken = ..UserIdIndexOpen(userId)
@@ -38,11 +36,17 @@ ClassMethod CreateOrUpdateUser(userId As %String, accessToken As %String, refres
         set userToken.UserId = userId
     }
 
-    set userToken.AccessToken = accessToken
-    set userToken.RefreshToken = refreshToken
-    set timeinseconds = ##class(%OAuth2.Utils).TimeInSeconds($ZTIMESTAMP, expiresIn)
+    return ..UpdateUserFromToken(userToken, token)
+}
+
+/// UpdateUserFromToken
+ClassMethod UpdateUserFromToken(userToken As Fitbit.DB.UserTokens, token As %DynamicObject) As %Status
+{
+    set userToken.AccessToken = token."access_token"
+    set userToken.RefreshToken = token."refresh_token"
+    set timeinseconds = ##class(%OAuth2.Utils).TimeInSeconds($ZTIMESTAMP, (token."expires_in" - 10))
     set userToken.UTCExpiryDateTime = $ZDATETIME($ZDATETIMEH(timeinseconds, -2), 3, 5)
-    set userToken.Scopes = scopes
+    set userToken.Scopes = token.scope
 
     return userToken.%Save()
 }
@@ -54,7 +58,31 @@ ClassMethod GetAccessTokenForUser(userId As %String) As %Status
     {
         #dim userToken as Fitbit.DB.UserTokens = ..UserIdIndexOpen(userId)
 
-        // TBD: Deal with token that is about to expire by refreshing it!!
+        // Deal with token that is about to expire by refreshing it
+        set now = ##class(%OAuth2.Utils).TimeInSeconds($ZTIMESTAMP, -10)
+        set expiry = $ZDATETIME($ZDATETIMEH(userToken.UTCExpiryDateTime, 3, 5), -2)
+        #; W "now: ",now,"; expiry: ",expiry,!
+
+        if now >= expiry
+        {
+            $$$TRACE("Token expired, now refreshing:")
+
+            set token = ##class(Fitbit.Api.Client.OAuth2.Token).GetTokenUsingRefresh(userToken.RefreshToken, .sc)
+
+            if $$$ISERR(sc)
+            {
+                $$$LOGERROR("GetTokenUsingRefresh failed: " _ sc)
+                return ""
+            }
+
+            set sc = ..UpdateUserFromToken(userToken, token)
+
+            if $$$ISERR(sc)
+            {
+                $$$LOGERROR("Update UserToken failed: " _ sc)
+                return ""
+            }
+        }
 
         return userToken.AccessToken
     }

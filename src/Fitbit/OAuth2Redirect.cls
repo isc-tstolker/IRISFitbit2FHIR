@@ -10,8 +10,7 @@ ClassMethod OnPage() As %Status
 	#dim %response As %CSP.Response
 	#dim %session as %CSP.Session
 
-	set code = %request.Get("code")
-	set token = ..GetToken(code, .sc)
+	set token = ##class(Fitbit.Api.Client.OAuth2.Token).GetToken(%request.Get("code"), %session.Get("CodeVerifier"), .sc)
 
 	if $$$ISERR(sc)
 	{
@@ -19,6 +18,11 @@ ClassMethod OnPage() As %Status
 	}
 
 	set sc = ##class(Fitbit.DB.UserTokens).CreateOrUpdateUserFromToken(token)
+
+	if $$$ISERR(sc)
+	{
+		return ..ErrorPage("Failed to store token:", sc)
+	}
 
 	// Now also call BP AddOrUpdateUser
 
@@ -208,45 +212,6 @@ span.cos_3C {color: #000000; }
 </style>>
 
 	return ""
-}
-
-/// Get Token with Authorization Code
-ClassMethod GetToken(code As %String, Output sc As %Status) As %DynamicObject
-{
-	set $ZTrap = "Error"
-	
-	#dim %session as %CSP.Session
-	set request = ##class(%Net.HttpRequest).%New()
-	set request.SSLConfiguration = "Default"
-	set request.FollowRedirect = 1
-	do request.InsertFormData("grant_type", "authorization_code")
-	do request.InsertFormData("code", code)
-	do request.InsertFormData("client_id", ##class(Fitbit.Api.Client.bo.Operation).GetConfigValue("OAuth2ClientID"))
-	do request.InsertFormData("redirect_uri", ##class(Fitbit.Api.Client.bo.Operation).GetConfigValue("RedirectUrl", 0))
-	do request.InsertFormData("expires_in", "900")
-	do request.InsertFormData("code_verifier", %session.Get("CodeVerifier"))
-	
-	set sc = request.Post("https://api.fitbit.com/oauth2/token")
-
-	if $$$ISERR(sc)
-	{
-		return {}
-	}
-
-	set token = request.HttpResponse.Data.Read()
-	
-	if request.HttpResponse.StatusCode '= 200
-	{
-		set sc = $$$ERROR($$$GeneralError, "HTTP status "_ request.HttpResponse.StatusCode_", message: " _ token)
-		return {}
-	}
-	
-	return ##class(%DynamicAbstractObject).%FromJSON(token)
-	
-Error
-	set $ZTrap = ""
-	set sc = $$$ERROR($$$GeneralError, $ZError)
-	return {}
 }
 
 /// Render Token Properties
