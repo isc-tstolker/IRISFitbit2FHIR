@@ -16,7 +16,32 @@ Method OnRequest(pRequest As Fitbit.Msg.NotificationRequest, Output pResponse As
 
 	try
 	{
-		// Handle the specified Notification
+		if pRequest.CollectionType = "activities" // Activity
+		{
+
+		}
+		elseif pRequest.CollectionType = "body" // Weight
+		{
+		}
+		elseif pRequest.CollectionType = "foods" // Nutrition
+		{
+
+		}
+		elseif pRequest.CollectionType = "sleep" // Sleep
+		{
+
+		}
+		elseif pRequest.CollectionType = "userRevokedAccess" // Users has revoked consent to the application
+		{
+
+		}
+		elseif pRequest.CollectionType = "deleteUser" // Users has deleted their Fitbit account
+		{
+		}
+		else
+		{
+			$$$LOGERROR("Unexpected collectionType " _ pRequest.CollectionType)
+		}
 	}
 	catch ex
 	{

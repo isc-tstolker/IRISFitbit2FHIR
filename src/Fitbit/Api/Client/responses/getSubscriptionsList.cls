@@ -3,7 +3,6 @@ Class Fitbit.Api.Client.responses.getSubscriptionsList Extends Fitbit.Api.Client
 {
 
 /// http status code = 200 content-type = application/json
-/// The posted JWT is valid. Responds with access token
 Property Subscriptions As Fitbit.Api.Client.model.Subscriptions;
 
 /// Implement operationId : getSubscriptionsList
