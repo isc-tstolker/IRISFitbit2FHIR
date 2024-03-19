@@ -19,7 +19,14 @@ Method Add(pResourceObj As %DynamicObject, pResourceIdToAssign As %String = "", 
 {
 	$$$FSLog("Add resource type: "_pResourceObj.resourceType_", HTTP method: " _ pHttpMethod)
 
-	set pResourceIdToAssign = $ZCONVERT($System.Util.CreateGUID(), "L")
+	if (pResourceObj.id '= "")
+	{
+		set pResourceIdToAssign = pResourceObj.id
+	}
+	else
+	{
+		set pResourceIdToAssign = $ZCONVERT($System.Util.CreateGUID(), "L")
+	}
 
 	do ##class(MyFHIRServer.Util.RefIntHelper).ValidateReferences(pResourceObj, ..strategy)
 

@@ -4,15 +4,10 @@ Include (%occErrors, Ensemble)
 Class Fitbit.BP.GetUserData Extends Fitbit.BP.FHIRBase [ ClassType = persistent ]
 {
 
-Parameter PatientIdentifierSystem = "https://www.fitbit.com/identifiers/user-id";
-
 Parameter SETTINGS = "FitbitWebAPI:Basic,FHIRInterop:Basic";
 
 /// Where to send the API requests
 Property FitbitWebAPI As Ens.DataType.ConfigName [ InitialExpression = "FitbitWebAPI" ];
-
-/// Where to send the FHIR requests
-Property FHIRInterop As Ens.DataType.ConfigName [ InitialExpression = "FHIRInterop" ];
 
 /// GetUserData
 Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output pResponse As Ens.Response) As %Status
@@ -22,10 +17,10 @@ Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output p
 	try
 	{
 		// Get User profile and create/update FHIR Patient
-		do ..CreateOrUpdatePatient(..GetProfile(pRequest.UserId))
+		#; do ..CreateOrUpdatePatient(..GetProfile(pRequest.UserId))
 
-		// TBD: Get historic data!
-
+		// Get historic weight
+		do ..GetWeightByDatePeriod(pRequest.UserId)
 	}
 	catch ex
 	{
@@ -101,6 +96,20 @@ Method GetProfile(userId As %String) As Fitbit.Api.Client.model.Profile
 	#dim response as Fitbit.Api.Client.responses.getProfile
 
 	return response.User.Profile
+}
+
+/// Get weight for maximum period
+Method GetWeightByDatePeriod(userId As %String, period As %String = "1y")
+{
+	set request = ##class(Fitbit.Api.Client.requests.getWeightByDateRange).%New()
+	set request.UserId = userId
+	// maximum numbber of days is 1095
+	set request.pathbasedate = "today"
+	set request.pathenddate = $ZDATE(-1094 + $HOROLOG, 3)
+
+	$$$ThrowOnError(..SendRequestSync(..FitbitWebAPI, request, .response))
+
+	#dim response as Fitbit.Api.Client.responses.getWeightByDateRange
 }
 
 Storage Default

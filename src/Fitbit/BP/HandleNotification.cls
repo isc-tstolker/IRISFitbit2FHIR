@@ -1,10 +1,10 @@
 Include Ensemble
 
 /// HandleNotification is called by the REST API for notifications received from Fitbit
-Class Fitbit.BP.HandleNotification Extends Ens.BusinessProcess [ ClassType = persistent ]
+Class Fitbit.BP.HandleNotification Extends Fitbit.BP.FHIRBase [ ClassType = persistent ]
 {
 
-Parameter SETTINGS = "FitbitWebAPI:Basic";
+Parameter SETTINGS = "FitbitWebAPI:Basic,FHIRInterop:Basic";
 
 /// Where to send the API requests
 Property FitbitWebAPI As Ens.DataType.ConfigName [ InitialExpression = "FitbitWebAPI" ];
@@ -22,6 +22,7 @@ Method OnRequest(pRequest As Fitbit.Msg.NotificationRequest, Output pResponse As
 		}
 		elseif pRequest.CollectionType = "body" // Weight
 		{
+			do ..SaveWeightObservations(pRequest.UserId, ..GetWeightForDate(pRequest.UserId, pRequest.Date))
 		}
 		elseif pRequest.CollectionType = "foods" // Nutrition
 		{
@@ -53,25 +54,18 @@ Method OnRequest(pRequest As Fitbit.Msg.NotificationRequest, Output pResponse As
 	return sc
 }
 
-/// Subscribe for the specified data source(s)
-Method Subscribe() As %String
+/// Get weight for specified date
+Method GetWeightForDate(userId As %String, date As %String) As Fitbit.Api.Client.model.WeightList
 {
-	set request = ##class(Fitbit.Api.Client.requests.addSubscriptions).%New()
-	// This is the resource of the collection to receive notifications from (foods, activities, sleep, or body).
-	// If not present, subscription will be created for all collections.
-	// If you have both all and specific collection subscriptions, you will get duplicate notifications on that collections' updates.
-	// Each subscriber can have only one subscription for a specific user's collection.
-	set request.pathcollectionpath = ""
-
-	// Unique ID of the subscription created by the API client application. 
-	// Each ID must be unique across the entire set of subscribers and collections.
-	// The Fitbit servers will pass this ID back along with any notifications about the user indicated by the user parameter in the URL path.
-	set request.pathsubscriptionid = ""
+	set request = ##class(Fitbit.Api.Client.requests.getWeightByDate).%New()
+	set request.UserId = userId
+	set request.pathdate = date
 
 	$$$ThrowOnError(..SendRequestSync(..FitbitWebAPI, request, .response))
-	#dim response as Fitbit.Api.Client.responses.addSubscriptions
 
-	return ""
+	#dim response as Fitbit.Api.Client.responses.getWeightByDate
+
+	return response.WeightList
 }
 
 Storage Default
