@@ -1,13 +1,18 @@
-Include Ensemble
+Include (%occErrors, Ensemble)
 
 /// GetUserData. This is called after adding a new user, but can also be called at a later moment in time to re-synchronize
-Class Fitbit.BP.GetUserData Extends Ens.BusinessProcess [ ClassType = persistent ]
+Class Fitbit.BP.GetUserData Extends Fitbit.BP.FHIRBase [ ClassType = persistent ]
 {
 
-Parameter SETTINGS = "FitbitWebAPI:Basic";
+Parameter PatientIdentifierSystem = "https://www.fitbit.com/identifiers/user-id";
+
+Parameter SETTINGS = "FitbitWebAPI:Basic,FHIRInterop:Basic";
 
 /// Where to send the API requests
 Property FitbitWebAPI As Ens.DataType.ConfigName [ InitialExpression = "FitbitWebAPI" ];
+
+/// Where to send the FHIR requests
+Property FHIRInterop As Ens.DataType.ConfigName [ InitialExpression = "FHIRInterop" ];
 
 /// GetUserData
 Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output pResponse As Ens.Response) As %Status
@@ -16,6 +21,11 @@ Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output p
 
 	try
 	{
+		// Get User profile and create/update FHIR Patient
+		do ..CreateOrUpdatePatient(..GetProfile(pRequest.UserId))
+
+		// TBD: Get historic data!
+
 	}
 	catch ex
 	{
@@ -27,25 +37,70 @@ Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output p
 	return sc
 }
 
-/// Subscribe for the specified data source(s)
-Method Subscribe() As %String
+/// Save the Fitbit profile as FHIR Patient
+Method CreateOrUpdatePatient(profile As Fitbit.Api.Client.model.Profile)
 {
-	set request = ##class(Fitbit.Api.Client.requests.addSubscriptions).%New()
-	// This is the resource of the collection to receive notifications from (foods, activities, sleep, or body).
-	// If not present, subscription will be created for all collections.
-	// If you have both all and specific collection subscriptions, you will get duplicate notifications on that collections' updates.
-	// Each subscriber can have only one subscription for a specific user's collection.
-	set request.pathcollectionpath = ""
+	set patient = {
+		"resourceType": "Patient",
+		"id": (profile.UserId),
+		"identifier": [
+			{
+				"system": (..#PatientIdentifierSystem),
+				"value": (profile.UserId)
+			}
+		],
+		"active": true,
+		"name": [
+			{
+				"use": "official",
+				"text": (profile.FullName),
+				"family": (profile.LastName),
+				"given": [ (profile.FirstName) ]
+			},
+			{
+				"use": "usual",
+				"text": (profile.DisplayName)
+			}
+		],
+		"gender": ($ZCONVERT(profile.Gender, "L")),
+		"birthDate": (profile.DateOfBirth),
+		"address": [
+			{
+				"country": (profile.Country)
+			}
+		],
+		"communication": [
+			{
+				"language": {
+					"coding": [
+						{
+							"system": "urn:ietf:bcp:47",
+							"code": (profile.LanguageLocale)
+						}
+					]
+				}
+			}
+		]
+	}
+	do patient.%Set("active", profile.IsUserVisible, "boolean")
 
-	// Unique ID of the subscription created by the API client application. 
-	// Each ID must be unique across the entire set of subscribers and collections.
-	// The Fitbit servers will pass this ID back along with any notifications about the user indicated by the user parameter in the URL path.
-	set request.pathsubscriptionid = ""
+	if (..SendFHIRResource("PUT", patient, "Patient/" _ profile.UserId) = "")
+	{
+		$$$ThrowOnError($$$ERROR($$$GeneralError, "Failed to save Fitbit User '" _ profile.UserId _ "' as Patient in the FHIR Store"))
+	}
+}
+
+/// Get the users profile
+Method GetProfile(userId As %String) As Fitbit.Api.Client.model.Profile
+{
+	set request = ##class(Fitbit.Api.Client.requests.getProfile).%New()
+	set request.UserId = userId
 
 	$$$ThrowOnError(..SendRequestSync(..FitbitWebAPI, request, .response))
-	#dim response as Fitbit.Api.Client.responses.addSubscriptions
 
-	return ""
+	#dim response as Fitbit.Api.Client.responses.getProfile
+
+	return response.User.Profile
 }
 
 Storage Default
@@ -54,6 +109,9 @@ Storage Default
 <Subscript>"GetUserData"</Subscript>
 <Value name="1">
 <Value>FitbitWebAPI</Value>
+</Value>
+<Value name="2">
+<Value>FHIRInterop</Value>
 </Value>
 </Data>
 <DefaultData>GetUserDataDefaultData</DefaultData>

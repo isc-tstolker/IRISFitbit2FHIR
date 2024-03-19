@@ -21,6 +21,11 @@ XData ProductionDefinition
     <Setting Target="Adapter" Name="HTTPPort"></Setting>
     <Setting Target="Adapter" Name="URL">/</Setting>
   </Item>
+  <Item Name="FHIRInterop" Category="" ClassName="HS.FHIRServer.Interop.Operation" PoolSize="1" Enabled="true" Foreground="false" Comment="FHIR Store access " LogTraceEvents="true" Schedule="">
+    <Setting Target="Host" Name="TraceOperations">*FULL*</Setting>
+  </Item>
+  <Item Name="HS.Util.Trace.Operations" Category="" ClassName="HS.Util.Trace.Operations" PoolSize="1" Enabled="true" Foreground="false" Comment="" LogTraceEvents="false" Schedule="">
+  </Item>
 </Production>
 }
 
