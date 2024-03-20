@@ -18,11 +18,21 @@ Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output p
 	{
 		// Get User profile and create/update FHIR Patient
 		#dim profile As Fitbit.Api.Client.model.Profile = ..GetProfile(pRequest.UserId)
-		$$$ThrowOnError(##class(Fitbit.DB.UserTokens).UpdateTimezone(pRequest.UserId, profile.Timezone))
-		do ..CreateOrUpdatePatient(profile)
+		$$$ThrowOnError(##class(Fitbit.DB.UserTokens).UpdateTimezone(pRequest.UserId, profile.Timezone, .startdate))
+		#; do ..CreateOrUpdatePatient(profile)
+		do ..GetAndSaveDevices(pRequest.UserId, profile.Timezone)
+
+		if (startdate = "") || (startdate = $CHAR(0))
+		{
+			set startdate = profile.MemberSince
+		}
+		set newstartDate = $ZDATETIME($HOROLOG, 3, 5)
 
 		// Get weights
-		do ..SyncWeight(pRequest.UserId, profile.Timezone, profile.MemberSince)
+		#; do ..SyncWeight(pRequest.UserId, profile.Timezone, startdate)
+
+		// Update UserTokens with lastsynchronized datetime
+		do ##class(Fitbit.DB.UserTokens).UpdateLastSynchronized(pRequest.UserId, newstartDate)
 	}
 	catch ex
 	{
@@ -101,9 +111,9 @@ Method GetProfile(userId As %String) As Fitbit.Api.Client.model.Profile
 }
 
 /// Sync Weight Observations
-Method SyncWeight(userId As %String = "", timezone As %String = "", memberSince As %String = "2016-03-10")
+Method SyncWeight(userId As %String, timezone As %String, startdate As %String)
 {
-	set startday = $ZDATEH(memberSince, 3)
+	set startday = $ZDATEH(startdate, 3)
 	set today = +$HOROLOG
 
 	for day = startday:32:today
@@ -126,7 +136,28 @@ Method SyncWeight(userId As %String = "", timezone As %String = "", memberSince 
 
 		#dim response as Fitbit.Api.Client.responses.getWeightByDateRange
 
-		do ..SaveWeightObservations(userId, timezone, response.WeightList)
+		for index = 1:1:response.WeightList.Weights.Count()
+		{
+			do ..SaveWeightObservation(userId, timezone, response.WeightList.Weights.GetAt(index))
+		}
+	}
+}
+
+/// Get active devices and Save to FHIR
+Method GetAndSaveDevices(userId As %String, timezone As %String)
+{
+	set request = ##class(Fitbit.Api.Client.requests.getDevices).%New()
+	set request.UserId = userId
+
+	$$$ThrowOnError(..SendRequestSync(..FitbitWebAPI, request, .response))
+	#dim response As Fitbit.Api.Client.responses.getDevices
+
+	for index = 1:1:response.Devices.Count()
+	{
+		#dim device as Fitbit.Api.Client.model.Device = response.Devices.GetAt(index)
+
+		/// Save Device
+		do ..SaveDevice(userId, timezone, device)
 	}
 }
 

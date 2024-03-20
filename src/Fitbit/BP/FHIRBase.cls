@@ -6,6 +6,8 @@ Class Fitbit.BP.FHIRBase Extends (Ens.BusinessProcess, Fitbit.Util.FHIRClientHel
 
 Parameter PatientIdentifierSystem = "https://www.fitbit.com/identifiers/user-id";
 
+Parameter DeviceIdentifierSystem = "https://www.fitbit.com/identifiers/DeviceId";
+
 Parameter ObservationIdentifierSystem = "https://www.fitbit.com/identifiers/logId";
 
 Parameter SessionApplication As STRING = "/fitbitfhir";
@@ -70,13 +72,66 @@ Method SendFHIRRequest(pRequest As HS.FHIRServer.Interop.Request) As %DynamicObj
     return reply
 }
 
-/// Save Observations for Weight
-Method SaveWeightObservations(userId As %String, timezone As %String, weightList As Fitbit.Api.Client.model.WeightList)
+/// Save Device
+Method SaveDevice(userId As %String, timezone As %String, fitbitDevice As Fitbit.Api.Client.model.Device)
 {
-    for index = 1:1:weightList.Weights.Count()
-    {
-        do ..SaveWeightObservation(userId, timezone, weightList.Weights.GetAt(index))
-    }
+    set id = userId _ "." _ fitbitDevice.DeviceId
+
+	set device = {
+		"resourceType": "Device",
+		"id": (id),
+		"identifier": [
+			{
+				"system": (..#DeviceIdentifierSystem),
+				"value": (id)
+			}
+		],
+		"status": "active",
+        "serialNumber": (fitbitDevice.DeviceId),
+        "deviceName": [
+            {
+                "name": (fitbitDevice.Name),
+                "type": "model-name"
+            }
+        ],
+        "type": {
+            "text": (fitbitDevice.Type)
+        },
+        "property": [
+            {
+                "type": {
+                    "text": "BatteryLevel"
+                },
+                "valueQuantity": [
+                    {
+                        "value": (fitbitDevice.BatteryPercentage),
+                        "unit": "%",
+                        "system" : "http://unitsofmeasure.org",
+                        "code" : "%"
+                    }
+                ],
+                "valueCode": [
+                    {
+                        "text": (fitbitDevice.BatteryLevel)
+                    }
+                ]
+            }
+        ],
+        "patient": {
+            "reference": ("Patient/" _ userId)
+        },
+        "note": [
+            {
+                "time": (..FormatDateTime(fitbitDevice.LastSyncTime, timezone)),
+                "text": ("Last synced at " _ $REPLACE($EXTRACT(fitbitDevice.LastSyncTime, 1, 19), "T", " "))
+            }
+        ]
+	}
+
+	if (..SendFHIRResource("PUT", device, "Device/" _ id) = "")
+	{
+		$$$ThrowOnError($$$ERROR($$$GeneralError, "Failed to save Device '" _ id _ "' in the FHIR Store"))
+	}
 }
 
 /// Save single Weight Observation

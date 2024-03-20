@@ -24,6 +24,9 @@ Property Scopes As %String(MAXLEN = "");
 /// Timezone
 Property Timezone As %String;
 
+/// LastSynchronized date everything was pulled
+Property LastSynchronized As %String;
+
 /// CreateOrUpdateUser
 ClassMethod CreateOrUpdateUserFromToken(token As %DynamicObject) As %Status
 {
@@ -107,7 +110,7 @@ ClassMethod GetScopesForUser(userId As %String) As %String
 }
 
 /// Get timezone for User
-ClassMethod UpdateTimezone(userId As %String, timezone As %String) As %Status
+ClassMethod UpdateTimezone(userId As %String, timezone As %String, Output lastSynchronized As %String) As %Status
 {
     set sc = $$$OK
 
@@ -116,6 +119,24 @@ ClassMethod UpdateTimezone(userId As %String, timezone As %String) As %Status
         #dim userToken as Fitbit.DB.UserTokens = ..UserIdIndexOpen(userId)
 
         set userToken.Timezone = timezone
+        set lastSynchronized = userToken.LastSynchronized
+
+        set sc = userToken.%Save()
+    }
+
+    return sc
+}
+
+/// Update LastSynchronized
+ClassMethod UpdateLastSynchronized(userId As %String, lastSynchronized As %String) As %Status
+{
+    set sc = $$$OK
+
+    if ..UserIdIndexExists(userId)
+    {
+        #dim userToken as Fitbit.DB.UserTokens = ..UserIdIndexOpen(userId)
+
+        set userToken.LastSynchronized = lastSynchronized
 
         set sc = userToken.%Save()
     }
@@ -159,6 +180,9 @@ Storage Default
 </Value>
 <Value name="7">
 <Value>Timezone</Value>
+</Value>
+<Value name="8">
+<Value>LastSynchronized</Value>
 </Value>
 </Data>
 <DataLocation>^Fitbit.DB.UserTokensD</DataLocation>
