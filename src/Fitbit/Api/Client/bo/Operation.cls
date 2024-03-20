@@ -23,7 +23,7 @@ Property heartrate As %Boolean [ InitialExpression = 1 ];
 
 Property location As %Boolean [ InitialExpression = 1 ];
 
-Property nutrition As %Boolean [ InitialExpression = 1 ];
+Property nutrition As %Boolean [ InitialExpression = 0 ];
 
 Property "oxygen_saturation" As %Boolean [ InitialExpression = 1 ];
 

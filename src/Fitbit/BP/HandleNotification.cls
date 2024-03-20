@@ -26,7 +26,7 @@ Method OnRequest(pRequest As Fitbit.Msg.NotificationRequest, Output pResponse As
 		}
 		elseif pRequest.CollectionType = "foods" // Nutrition
 		{
-
+			$$$LOGERROR("Unsupported collectionType " _ pRequest.CollectionType)
 		}
 		elseif pRequest.CollectionType = "sleep" // Sleep
 		{
