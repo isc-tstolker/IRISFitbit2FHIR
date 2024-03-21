@@ -17,11 +17,12 @@ Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output p
 
 	try
 	{
-		set scopes = ##class(Fitbit.DB.UserTokens).GetScopesForUser(pRequest.UserId)
+		set scopes = ##class(Fitbit.DB.UserTokens).GetScopesForUser(pRequest.UserId, .startdate)
 
 		if scopes [ "profile"
 		{
 			set profile = ..GetProfile(pRequest.UserId) // Get User profile
+			$$$ThrowOnError(##class(Fitbit.DB.UserTokens).UpdateTimezone(pRequest.UserId, profile.Timezone))
 			do ..CreateOrUpdatePatient(profile)
 			do ..CreateOrUpdateHeightObservation(profile.UserId, profile.Timezone, profile.Height)
 		}
@@ -36,8 +37,6 @@ Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output p
 		{
 			do ..GetAndSaveDevices(pRequest.UserId, profile.Timezone)
 		}
-
-		$$$ThrowOnError(##class(Fitbit.DB.UserTokens).UpdateTimezone(pRequest.UserId, profile.Timezone, .startdate))
 
 		if (startdate = "") || (startdate = $CHAR(0))
 		{

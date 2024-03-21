@@ -97,11 +97,13 @@ ClassMethod GetAccessTokenForUser(userId As %String) As %String
 }
 
 /// Get scopes for User
-ClassMethod GetScopesForUser(userId As %String) As %String
+ClassMethod GetScopesForUser(userId As %String, Output lastSynchronized As %String) As %String
 {
     if ..UserIdIndexExists(userId)
     {
         #dim userToken as Fitbit.DB.UserTokens = ..UserIdIndexOpen(userId)
+
+        set lastSynchronized = userToken.LastSynchronized
 
         return userToken.Scopes
     }
@@ -110,7 +112,7 @@ ClassMethod GetScopesForUser(userId As %String) As %String
 }
 
 /// Get timezone for User
-ClassMethod UpdateTimezone(userId As %String, timezone As %String, Output lastSynchronized As %String) As %Status
+ClassMethod UpdateTimezone(userId As %String, timezone As %String) As %Status
 {
     set sc = $$$OK
 
@@ -119,7 +121,6 @@ ClassMethod UpdateTimezone(userId As %String, timezone As %String, Output lastSy
         #dim userToken as Fitbit.DB.UserTokens = ..UserIdIndexOpen(userId)
 
         set userToken.Timezone = timezone
-        set lastSynchronized = userToken.LastSynchronized
 
         set sc = userToken.%Save()
     }
