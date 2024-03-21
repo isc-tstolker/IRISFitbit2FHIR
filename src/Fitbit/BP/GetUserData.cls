@@ -22,8 +22,6 @@ Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output p
 		if scopes [ "profile"
 		{
 			set profile = ..GetProfile(pRequest.UserId) // Get User profile
-			$$$ThrowOnError(##class(Fitbit.DB.UserTokens).UpdateTimezone(pRequest.UserId, profile.Timezone, .startdate))
-
 			do ..CreateOrUpdatePatient(profile)
 			do ..CreateOrUpdateHeightObservation(profile.UserId, profile.Timezone, profile.Height)
 		}
@@ -39,10 +37,13 @@ Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output p
 			do ..GetAndSaveDevices(pRequest.UserId, profile.Timezone)
 		}
 
-		#; if (startdate = "") || (startdate = $CHAR(0))
-		#; {
+		$$$ThrowOnError(##class(Fitbit.DB.UserTokens).UpdateTimezone(pRequest.UserId, profile.Timezone, .startdate))
+
+		if (startdate = "") || (startdate = $CHAR(0))
+		{
 			set startdate = profile.MemberSince
-		#; }
+		}
+
 		set newstartDate = $ZDATETIME($HOROLOG, 3, 5)
 
 		if scopes [ "activity"
@@ -50,12 +51,11 @@ Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output p
 			do ..SyncActivity(pRequest.UserId, profile.Timezone, startdate)
 		}
 
-		#; if scopes [ "weight"
-		#; {
-		#; 	do ..SyncWeight(pRequest.UserId, profile.Timezone, startdate)
-		#; }
+		if scopes [ "weight"
+		{
+			do ..SyncWeight(pRequest.UserId, profile.Timezone, startdate)
+		}
 
-		// Update UserTokens with lastsynchronized datetime
 		do ##class(Fitbit.DB.UserTokens).UpdateLastSynchronized(pRequest.UserId, newstartDate)
 	}
 	catch ex
