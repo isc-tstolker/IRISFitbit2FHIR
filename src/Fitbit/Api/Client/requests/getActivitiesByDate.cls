@@ -1,3 +1,4 @@
+/// GetActivities request
 Class Fitbit.Api.Client.requests.getActivitiesByDate Extends Fitbit.Api.Client.requests.GenericRequest [ ProcedureBlock ]
 {
 

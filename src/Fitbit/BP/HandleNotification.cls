@@ -18,13 +18,21 @@ Method OnRequest(pRequest As Fitbit.Msg.NotificationRequest, Output pResponse As
 	{
 		if pRequest.CollectionType = "activities" // Activity
 		{
+			set timezone = ##class(Fitbit.DB.UserTokens).GetTimezoneForUser(pRequest.UserId, .scopes)
 
+			if scopes [ "activity"
+			{
+				do ..SaveActivityObservations(pRequest.UserId, timezone, pRequest.Date, ..GetActivityForDate(pRequest.UserId, pRequest.Date))
+			}
 		}
 		elseif pRequest.CollectionType = "body" // Weight
 		{
-			set timezone = ##class(Fitbit.DB.UserTokens).GetTimezoneForUser(pRequest.UserId)
+			set timezone = ##class(Fitbit.DB.UserTokens).GetTimezoneForUser(pRequest.UserId, .scopes)
 
-			do ..SaveWeightObservations(pRequest.UserId, timezone, ..GetWeightForDate(pRequest.UserId, pRequest.Date))
+			if scopes [ "weight"
+			{
+				do ..SaveWeightObservations(pRequest.UserId, timezone, ..GetWeightForDate(pRequest.UserId, pRequest.Date))
+			}
 		}
 		elseif pRequest.CollectionType = "foods" // Nutrition
 		{
@@ -54,6 +62,20 @@ Method OnRequest(pRequest As Fitbit.Msg.NotificationRequest, Output pResponse As
 	}
 
 	return sc
+}
+
+/// Get Activity for specified date
+Method GetActivityForDate(userId As %String, date As %String) As Fitbit.Api.Client.model.Activities
+{
+	set request = ##class(Fitbit.Api.Client.requests.getActivitiesByDate).%New()
+	set request.UserId = userId
+	set request.pathdate = date
+
+	$$$ThrowOnError(..SendRequestSync(..FitbitWebAPI, request, .response))
+
+	#dim response as Fitbit.Api.Client.responses.getActivitiesByDate
+
+	return response.Activities
 }
 
 /// Get weight for specified date

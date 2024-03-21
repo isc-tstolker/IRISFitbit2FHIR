@@ -13,24 +13,47 @@ Property FitbitWebAPI As Ens.DataType.ConfigName [ InitialExpression = "FitbitWe
 Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output pResponse As Ens.Response) As %Status
 {
 	#dim sc As %Status = $$$OK
+	#dim profile As Fitbit.Api.Client.model.Profile
 
 	try
 	{
-		// Get User profile and create/update FHIR Patient
-		#dim profile As Fitbit.Api.Client.model.Profile = ..GetProfile(pRequest.UserId)
-		$$$ThrowOnError(##class(Fitbit.DB.UserTokens).UpdateTimezone(pRequest.UserId, profile.Timezone, .startdate))
-		do ..CreateOrUpdatePatient(profile)
-		do ..CreateOrUpdateHeightObservation(profile.UserId, profile.Timezone, profile.Height)
-		do ..GetAndSaveDevices(pRequest.UserId, profile.Timezone)
+		set scopes = ##class(Fitbit.DB.UserTokens).GetScopesForUser(pRequest.UserId)
 
-		if (startdate = "") || (startdate = $CHAR(0))
+		if scopes [ "profile"
 		{
-			set startdate = profile.MemberSince
+			set profile = ..GetProfile(pRequest.UserId) // Get User profile
+			$$$ThrowOnError(##class(Fitbit.DB.UserTokens).UpdateTimezone(pRequest.UserId, profile.Timezone, .startdate))
+
+			do ..CreateOrUpdatePatient(profile)
+			do ..CreateOrUpdateHeightObservation(profile.UserId, profile.Timezone, profile.Height)
 		}
+		else // Assume defaults
+		{
+			set profile = ##class(Fitbit.Api.Client.model.Profile).%New()
+			set profile.Timezone = "Europe/Amsterdam"
+			set profile.MemberSince = $ZDATE(-366 + $H, 3) // Assume data for one year
+		}
+
+		if scopes [ "settings"
+		{
+			do ..GetAndSaveDevices(pRequest.UserId, profile.Timezone)
+		}
+
+		#; if (startdate = "") || (startdate = $CHAR(0))
+		#; {
+			set startdate = profile.MemberSince
+		#; }
 		set newstartDate = $ZDATETIME($HOROLOG, 3, 5)
 
-		// Get weights
-		do ..SyncWeight(pRequest.UserId, profile.Timezone, startdate)
+		if scopes [ "activity"
+		{
+			do ..SyncActivity(pRequest.UserId, profile.Timezone, startdate)
+		}
+
+		#; if scopes [ "weight"
+		#; {
+		#; 	do ..SyncWeight(pRequest.UserId, profile.Timezone, startdate)
+		#; }
 
 		// Update UserTokens with lastsynchronized datetime
 		do ##class(Fitbit.DB.UserTokens).UpdateLastSynchronized(pRequest.UserId, newstartDate)
@@ -83,7 +106,7 @@ Method CreateOrUpdatePatient(profile As Fitbit.Api.Client.model.Profile)
 					"coding": [
 						{
 							"system": "urn:ietf:bcp:47",
-							"code": (profile.LanguageLocale)
+							"code": ($Replace(profile.LanguageLocale, "_", "-"))
 						}
 					]
 				}
@@ -109,6 +132,47 @@ Method GetProfile(userId As %String) As Fitbit.Api.Client.model.Profile
 	#dim response as Fitbit.Api.Client.responses.getProfile
 
 	return response.User.Profile
+}
+
+/// Sync historic Activity Observations
+/// This can best be done by retrieving Get Activity Time Series by Date Range for steps and calories
+Method SyncActivity(userId As %String, timezone As %String, startdate As %String)
+{
+	set max = 1094 // maximum number of days is 1095
+	set startday = $ZDATEH(startdate, 3)
+	set yesterday = -1 + $HOROLOG
+
+	for day = startday:(max + 1):yesterday
+	{
+		set request = ##class(Fitbit.Api.Client.requests.getActivitiesResourceByDateRange).%New()
+		set request.UserId = userId
+		set request.pathbasedate = $ZDATE(day, 3)
+
+		if (day + max) > yesterday
+		{
+			set request.pathenddate = $ZDATE(yesterday, 3)
+		}
+		else
+		{
+			set request.pathenddate = $ZDATE(day + max, 3)
+		}
+
+		do ..SyncActivityRange(request, timezone, "steps")
+		do ..SyncActivityRange(request, timezone, "calories")
+	}
+}
+
+/// Description
+Method SyncActivityRange(request As Fitbit.Api.Client.requests.getActivitiesResourceByDateRange, timezone As %String, activity As %String)
+{
+	set request = request.%ConstructClone() // Avoid that all visual trace entries show "calories"
+	set request.pathresourcepath = activity
+
+	$$$ThrowOnError(..SendRequestSync(..FitbitWebAPI, request, .response))
+
+	#dim response as Fitbit.Api.Client.responses.getActivitiesResourceByDateRange
+
+	do ..SaveActivityObservationRange(request.UserId, timezone, response.ValueList, activity)
 }
 
 /// Sync Weight Observations

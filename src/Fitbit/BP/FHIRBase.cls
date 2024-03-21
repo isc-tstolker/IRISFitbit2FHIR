@@ -10,6 +10,12 @@ Parameter DeviceIdentifierSystem = "https://www.fitbit.com/identifiers/DeviceId"
 
 Parameter ObservationIdentifierSystem = "https://www.fitbit.com/identifiers/logId";
 
+Parameter Steps = "41950-7|Number of steps in 24 Hours, Measured|/d";
+
+Parameter Heartrateresting = "40443-4|Heart rate - resting|/min";
+
+Parameter Calories = "41979-6|Calories burned in 24 Hours, Calc|kcal/d";
+
 Parameter SessionApplication As STRING = "/fitbitfhir";
 
 /// Where to send the FHIR requests
@@ -37,8 +43,16 @@ Method FHIRSearch(resourceType As %String, query As %String, ByRef vars As %Stri
     return ..SendFHIRRequest(request)
 }
 
-// Send a FHIR resource to the target system
+/// Update FHIR resource
+Method UpdateFHIRResource(resource As %DynamicObject, key As %String)
+{
+	if (..SendFHIRResource("PUT", resource, key) = "")
+	{
+		$$$ThrowOnError($$$ERROR($$$GeneralError, "Failed to save key in the FHIR Store"))
+	}
+}
 
+/// Send a FHIR resource to the target system
 Method SendFHIRResource(method As %String, resource As %DynamicObject, requestPath As %String, queryString As %String = "") As %DynamicObject
 {
 	#dim request as HS.FHIRServer.Interop.Request = ##class(HS.FHIRServer.Interop.Request).%New()
@@ -128,17 +142,13 @@ Method SaveDevice(userId As %String, timezone As %String, fitbitDevice As Fitbit
         ]
 	}
 
-	if (..SendFHIRResource("PUT", device, "Device/" _ id) = "")
-	{
-		$$$ThrowOnError($$$ERROR($$$GeneralError, "Failed to save Device '" _ id _ "' in the FHIR Store"))
-	}
+    do ..UpdateFHIRResource(device, "Device/" _ id)
 }
 
 /// Store the Height kept in the users profile as a Height Observation and todays date
 Method CreateOrUpdateHeightObservation(userId As %String, timezone As %String, height As %Numeric)
 {
     set id = userId _ ".height"
-
 	set observation = {
 		"resourceType": "Observation",
 		"id": (id),
@@ -185,10 +195,96 @@ Method CreateOrUpdateHeightObservation(userId As %String, timezone As %String, h
         }
 	}
 
-	if (..SendFHIRResource("PUT", observation, "Observation/" _ id) = "")
-	{
-		$$$ThrowOnError($$$ERROR($$$GeneralError, "Failed to save height Observation '" _ id _ "' in the FHIR Store"))
+    do ..UpdateFHIRResource(observation, "Observation/" _ id)
+}
+
+/// Save Activity Time-Based Measure Observations for the specified day
+Method SaveActivityObservations(userId As %String, timezone As %String, date As %String, activities As Fitbit.Api.Client.model.Activities)
+{
+    set today = $ZDATE($HOROLOG, 3)
+    set start = ..FormatDateTime(date _ "T00:00:00", timezone)
+
+    if (date = today)
+    {
+        set end = ..FormatDateTime($ZDATETIME($HOROLOG, 3, 5), timezone)
+        set status = "preliminary"
+    }
+    else
+    {
+        set end = ..FormatDateTime(date _ "T23:59:59", timezone)
+        set status = "final"
+    }
+
+    do SaveActivityObservation(userId, "steps", start, end, activities.Summary.Steps, status)
+    do SaveActivityObservation(userId, "heartrateresting", start, end, activities.Summary.RestingHeartRate, status)
+    do SaveActivityObservation(userId, "calories", start, end, activities.Summary.CaloriesOut, status)
+}
+
+/// Save range of observations
+Method SaveActivityObservationRange(userId As %String, timezone As %String, valueList As Fitbit.Api.Client.model.ActivityResourceValueList, activity As %String)
+{
+    for index = 1:1:valueList.Values.Count()
+    {
+        #dim value as Fitbit.Api.Client.model.ActivityResourceValue = valueList.Values.GetAt(index)
+
+        set start = ..FormatDateTime(value.DateTime _ "T00:00:00", timezone)
+        set end = ..FormatDateTime(value.DateTime _ "T23:59:59", timezone)
+
+        do SaveActivityObservation(userId, activity, start, end, +value.Value, "final")
+    }
+}
+
+/// Helper to save Activity Observation
+Method SaveActivityObservation(userId As %String, activity As %String, start As %String, end As %String, value As %Numeric, status As %String)
+{
+    set id = userId _ "." _ activity _ "." _ $EXTRACT(start, 1, 10)
+    set codeDisplayUnit = $PARAMETER(, $ZCONVERT(activity, "w"))
+	set observation = {
+		"resourceType": "Observation",
+		"id": (id),
+		"identifier": [
+			{
+				"system": (..#ObservationIdentifierSystem),
+				"value": (id)
+			}
+		],
+		"status": (status),
+		"category": [ {
+                "coding": [ {
+                        "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                        "code": "activity"
+                    }
+                ]
+            }
+		],
+		"code": {
+            "coding": [ {
+                    "system": "http://loinc.org",
+                    "code": ($PIECE(codeDisplayUnit, "|", 1)),
+                    "display": ($PIECE(codeDisplayUnit, "|", 2))
+                }
+            ]
+        },
+        "subject": {
+            "reference": ("Patient/" _ userId)
+        },
+        "effectivePeriod": {
+            "start": (start),
+            "end": (end)
+        },
+        "performer": [ {
+                "reference": ("Patient/" _ userId)
+            }
+        ],
+        "valueQuantity": {
+            "value": (value),
+            "unit": ($PIECE(codeDisplayUnit, "|", 3)),
+            "system" : "http://unitsofmeasure.org",
+            "code" : ($PIECE(codeDisplayUnit, "|", 3))
+        }
 	}
+
+    do ..UpdateFHIRResource(observation, "Observation/" _ id)
 }
 
 /// Save Observations for Weight
@@ -305,10 +401,7 @@ Method SaveWeightObservation(userId As %String, timezone As %String, weight As F
             })        
     }
 
-	if (..SendFHIRResource("PUT", observation, "Observation/" _ id) = "")
-	{
-		$$$ThrowOnError($$$ERROR($$$GeneralError, "Failed to save weight Observation '" _ id _ "' in the FHIR Store"))
-	}
+    do ..UpdateFHIRResource(observation, "Observation/" _ id)
 }
 
 /// Use Python to determine the proper timezone offset

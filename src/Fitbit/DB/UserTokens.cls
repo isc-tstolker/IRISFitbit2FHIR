@@ -145,12 +145,12 @@ ClassMethod UpdateLastSynchronized(userId As %String, lastSynchronized As %Strin
 }
 
 /// Get timezone for User
-ClassMethod GetTimezoneForUser(userId As %String) As %String
+ClassMethod GetTimezoneForUser(userId As %String, Output scopes As %String) As %String
 {
     if ..UserIdIndexExists(userId)
     {
         #dim userToken as Fitbit.DB.UserTokens = ..UserIdIndexOpen(userId)
-
+        set scopes = userToken.Scopes
         return userToken.Timezone
     }
 
