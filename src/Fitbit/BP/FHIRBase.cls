@@ -134,6 +134,63 @@ Method SaveDevice(userId As %String, timezone As %String, fitbitDevice As Fitbit
 	}
 }
 
+/// Store the Height kept in the users profile as a Height Observation and todays date
+Method CreateOrUpdateHeightObservation(userId As %String, timezone As %String, height As %Numeric)
+{
+    set id = userId _ ".height"
+
+	set observation = {
+		"resourceType": "Observation",
+		"id": (id),
+		"identifier": [
+			{
+				"system": (..#ObservationIdentifierSystem),
+				"value": (id)
+			}
+		],
+		"status": "final",
+		"category": [
+            {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                        "code": "vital-signs"
+                    }
+                ]
+            }
+		],
+		"code": {
+            "coding": [
+                {
+                    "system": "http://loinc.org",
+                    "code": "3137-7",
+                    "display": "Body height Measured"
+                }
+            ]
+        },
+        "subject": {
+            "reference": ("Patient/" _ userId)
+        },
+        "effectiveDateTime": (..FormatDateTime($ZDATETIME((+$HOROLOG) _ ",0",3, 5), timezone)),
+        "performer": [
+            {
+                "reference": ("Patient/" _ userId)
+            }
+        ],
+        "valueQuantity": {
+            "value": (height),
+            "unit": "cm",
+            "system" : "http://unitsofmeasure.org",
+            "code" : "cm"
+        }
+	}
+
+	if (..SendFHIRResource("PUT", observation, "Observation/" _ id) = "")
+	{
+		$$$ThrowOnError($$$ERROR($$$GeneralError, "Failed to save height Observation '" _ id _ "' in the FHIR Store"))
+	}
+}
+
 /// Save Observations for Weight
 Method SaveWeightObservations(userId As %String, timezone As %String, weightList As Fitbit.Api.Client.model.WeightList)
 {
@@ -255,7 +312,7 @@ Method SaveWeightObservation(userId As %String, timezone As %String, weight As F
 }
 
 /// Use Python to determine the proper timezone offset
-ClassMethod FormatDateTime(fitbitdatetime As %String, timezone As %String) As %String [ Language = python ]
+ClassMethod FormatDateTime(fitbitdatetime As %String, timezone As %String = "Europe/Amsterdam") As %String [ Language = python ]
 {
     import tzdata
     from zoneinfo import ZoneInfo

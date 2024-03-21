@@ -19,7 +19,8 @@ Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output p
 		// Get User profile and create/update FHIR Patient
 		#dim profile As Fitbit.Api.Client.model.Profile = ..GetProfile(pRequest.UserId)
 		$$$ThrowOnError(##class(Fitbit.DB.UserTokens).UpdateTimezone(pRequest.UserId, profile.Timezone, .startdate))
-		#; do ..CreateOrUpdatePatient(profile)
+		do ..CreateOrUpdatePatient(profile)
+		do ..CreateOrUpdateHeightObservation(profile.UserId, profile.Timezone, profile.Height)
 		do ..GetAndSaveDevices(pRequest.UserId, profile.Timezone)
 
 		if (startdate = "") || (startdate = $CHAR(0))
@@ -29,7 +30,7 @@ Method OnRequest(pRequest As Fitbit.Api.Client.requests.GenericRequest, Output p
 		set newstartDate = $ZDATETIME($HOROLOG, 3, 5)
 
 		// Get weights
-		#; do ..SyncWeight(pRequest.UserId, profile.Timezone, startdate)
+		do ..SyncWeight(pRequest.UserId, profile.Timezone, startdate)
 
 		// Update UserTokens with lastsynchronized datetime
 		do ##class(Fitbit.DB.UserTokens).UpdateLastSynchronized(pRequest.UserId, newstartDate)
