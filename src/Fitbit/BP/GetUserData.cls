@@ -136,10 +136,7 @@ Method SyncWeight(userId As %String, timezone As %String, startdate As %String)
 
 		#dim response as Fitbit.Api.Client.responses.getWeightByDateRange
 
-		for index = 1:1:response.WeightList.Weights.Count()
-		{
-			do ..SaveWeightObservation(userId, timezone, response.WeightList.Weights.GetAt(index))
-		}
+		do ..SaveWeightObservations(userId, timezone, response.WeightList)
 	}
 }
 

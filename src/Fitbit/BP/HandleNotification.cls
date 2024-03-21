@@ -22,7 +22,9 @@ Method OnRequest(pRequest As Fitbit.Msg.NotificationRequest, Output pResponse As
 		}
 		elseif pRequest.CollectionType = "body" // Weight
 		{
-			do ..SaveWeightObservations(pRequest.UserId, ..GetWeightForDate(pRequest.UserId, pRequest.Date))
+			set timezone = ##class(Fitbit.DB.UserTokens).GetTimezoneForUser(pRequest.UserId)
+
+			do ..SaveWeightObservations(pRequest.UserId, timezone, ..GetWeightForDate(pRequest.UserId, pRequest.Date))
 		}
 		elseif pRequest.CollectionType = "foods" // Nutrition
 		{

@@ -134,6 +134,15 @@ Method SaveDevice(userId As %String, timezone As %String, fitbitDevice As Fitbit
 	}
 }
 
+/// Save Observations for Weight
+Method SaveWeightObservations(userId As %String, timezone As %String, weightList As Fitbit.Api.Client.model.WeightList)
+{
+    for index = 1:1:weightList.Weights.Count()
+    {
+        do ..SaveWeightObservation(userId, timezone, weightList.Weights.GetAt(index))
+    }
+}
+
 /// Save single Weight Observation
 Method SaveWeightObservation(userId As %String, timezone As %String, weight As Fitbit.Api.Client.model.Weight)
 {

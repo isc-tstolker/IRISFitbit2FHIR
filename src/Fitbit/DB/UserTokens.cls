@@ -151,7 +151,7 @@ ClassMethod GetTimezoneForUser(userId As %String) As %String
     {
         #dim userToken as Fitbit.DB.UserTokens = ..UserIdIndexOpen(userId)
 
-        return userToken.Scopes
+        return userToken.Timezone
     }
 
     return ""
