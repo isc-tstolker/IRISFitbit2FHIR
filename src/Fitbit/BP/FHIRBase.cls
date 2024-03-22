@@ -216,8 +216,12 @@ Method SaveActivityObservations(userId As %String, timezone As %String, date As 
     }
 
     do SaveActivityObservation(userId, "steps", start, end, activities.Summary.Steps, status)
-    do SaveActivityObservation(userId, "heartrateresting", start, end, activities.Summary.RestingHeartRate, status)
     do SaveActivityObservation(userId, "calories", start, end, activities.Summary.CaloriesOut, status)
+
+    if activities.Summary.RestingHeartRate '= ""
+    {
+        do SaveActivityObservation(userId, "heartrateresting", start, end, activities.Summary.RestingHeartRate, status)
+    }
 }
 
 /// Save range of observations
